@@ -297,13 +297,17 @@ class InterfaceJeu:
             if self.raquette is not None:
                 self.canvas.delete(self.raquette)
                 self.raquette = None
-            self.terminer_partie("Plus de raquette !")
+            self.terminer_partie("perdu")
         else:
             self.mettre_a_jour_raquette()
+    
+
+   
+
+    
 
 
 if __name__ == "__main__":
     fenetre = tk.Tk()
     app = InterfaceAccueil(fenetre)
     fenetre.mainloop()
-
