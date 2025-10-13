@@ -11,7 +11,7 @@ class InterfaceAccueil:
     def __init__(self, root):
         self.root = root
         self.root.title("Casse-Brique")
-        self.root.geometry("1280x900")
+        self.root.geometry("500x400")
         self.root.configure(bg="#001a33")
 
         self.label_titre = tk.Label(
@@ -47,16 +47,16 @@ class InterfaceJeu:
         self.partie_terminee = False
         self.en_cours = False
         self.animation_id = None
-        self.raquette_largeurs = [200, 140, 80]
+        self.raquette_largeurs = [120, 90, 60]
         self.raquette_etape = 0
-        self.canvas_width = 1100
-        self.canvas_height = 720
-        self.raquette_y = self.canvas_height - 60
+        self.canvas_width = 500
+        self.canvas_height = 300
+        self.raquette_y = self.canvas_height - 30
         self.raquette_hauteur = 20
         self.balle_diametre = 20
 
         top_frame = tk.Frame(root, bg="#001a33")
-        top_frame.pack(fill=tk.X, pady=20)
+        top_frame.pack(fill=tk.X, pady=10)
 
         self.label_score = tk.Label(
             top_frame,
@@ -92,8 +92,8 @@ class InterfaceJeu:
         self.raquette = self.canvas.create_rectangle(0, 0, 0, 0, fill="white")
         self.balle = self.canvas.create_oval(0, 0, 0, 0, fill="white")
 
-        self.vitesse_x = 4
-        self.vitesse_y = -4
+        self.vitesse_x = 3
+        self.vitesse_y = -3
 
         self.root.bind("<Left>", self.deplacer_gauche)
         self.root.bind("<Right>", self.deplacer_droite)
@@ -105,13 +105,13 @@ class InterfaceJeu:
         self.canvas.delete("brique")
         self.briques = []
 
-        brique_largeur = 80
+        brique_largeur = 60
         brique_hauteur = 20
         espacement_x = 10
         espacement_y = 10
-        colonnes = 12
-        lignes = 5
-        marge_haute = 50
+        colonnes = 7
+        lignes = 3
+        marge_haute = 20
 
         largeur_total = colonnes * brique_largeur + (colonnes - 1) * espacement_x
         marge_gauche = (self.canvas_width - largeur_total) // 2
@@ -157,8 +157,8 @@ class InterfaceJeu:
         self.canvas.delete("message")
         self.mettre_a_jour_raquette(recentrer=True)
         self.positionner_balle_centre()
-        self.vitesse_x = 4
-        self.vitesse_y = -4
+        self.vitesse_x = 3
+        self.vitesse_y = -3
 
     def terminer_partie(self, message):
         self.partie_terminee = True
@@ -230,8 +230,8 @@ class InterfaceJeu:
 
         if pos[3] >= self.canvas_height:
             self.positionner_balle_centre()
-            self.vitesse_x = 4 if self.vitesse_x >= 0 else -4
-            self.vitesse_y = -4
+            self.vitesse_x = 3 if self.vitesse_x >= 0 else -3
+            self.vitesse_y = -3
             self.reduire_raquette()
             if self.partie_terminee:
                 return
@@ -261,7 +261,7 @@ class InterfaceJeu:
     def positionner_balle_centre(self):
         rayon = self.balle_diametre / 2
         centre_x = self.canvas_width / 2
-        centre_y = max(rayon, self.raquette_y - 60)
+        centre_y = max(rayon, self.raquette_y - 40)
         x1 = int(centre_x - rayon)
         y1 = int(centre_y - rayon)
         x2 = int(centre_x + rayon)
@@ -311,3 +311,4 @@ if __name__ == "__main__":
     fenetre = tk.Tk()
     app = InterfaceAccueil(fenetre)
     fenetre.mainloop()
+
