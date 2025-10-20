@@ -1,16 +1,28 @@
-# Casse-Brique en Python (Tkinter)
+# Casse-Brique 
 
-Un jeu de **Casse-Brique moderne** développé en **Python avec Tkinter**.
+**Auteurs :** Stéphane Urbon & Rayane Zidane  
+**Date :** 06/10/2025  
+**Objectif :** Jeu de Casse-Brique en Python avec Tkinter.
+---
+
+## Présentation
+
+Ce projet est une version moderne du **Casse-Brique** classique, développée en **Python** avec la bibliothèque **Tkinter**.  
+
 
 ---
 
-## Fonctionnalités 
-- Bonus & Malus :
-  - Briques rouges : boost de vitesse temporaire.  
-  - Briques vertes : ralentissement des déplacements de la raquette.  
-  - Briques violettes : inversion du jeu (effet miroir pendant quelques secondes).  
-- Système de score dynamique.  
-- Raquette évolutive : elle rétrécit à chaque balle perdue.  
-- Rejouabilité : possibilité de rejouer immédiatement après une victoire ou une défaite.  
+## Fonctionnalités principales
+
+- **Système de bonus et malus :**
+  - **Brique rouge** : vitesse de la balle augmentée temporairement.
+  - **Brique verte** : ralentit la raquette pendant quelques secondes.
+  - **Brique violette** : le terrain se retourne (effet miroir) pendant un temps limité.
+- **Raquette évolutive** : elle rétrécit à chaque balle perdue.
+- **Score dynamique** : chaque brique détruite rapporte des points.
+- **Vitesse progressive** : la balle accélère à mesure que tu détruis les briques.
+
 
 ---
+
+
