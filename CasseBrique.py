@@ -13,24 +13,19 @@ class InterfaceAccueil:
         self.root = root
         self.root.title("Casse-Brique")
 
-        # --- Détection automatique de la taille de l'écran ---
         self.screen_width = root.winfo_screenwidth()
         self.screen_height = root.winfo_screenheight()
 
-        # Taille de référence (pour échelle)
         self.ref_width = 1600
         self.ref_height = 900
 
-        # Facteur d’échelle
         self.scale_x = self.screen_width / self.ref_width
         self.scale_y = self.screen_height / self.ref_height
         self.scale = min(self.scale_x, self.scale_y)
 
-        # Configuration de la fenêtre
         self.root.geometry(f"{self.screen_width}x{self.screen_height}")
         self.root.configure(bg="#001a33")
 
-        # --- Éléments d'accueil ---
         self.label_titre = tk.Label(
             root,
             text="Bienvenue dans le Casse-Brique",
@@ -63,21 +58,19 @@ class InterfaceJeu:
         self.scale = scale
         self.root.configure(bg="#001a33")
 
-        # --- Paramètres du jeu (mis à l'échelle) ---
         self.canvas_width = int(1600 * scale)
         self.canvas_height = int(700 * scale)
         self.raquette_hauteur = int(25 * scale)
         self.balle_diametre = int(25 * scale)
         self.raquette_y = self.canvas_height - int(50 * scale)
-        self.raquette_largeurs = [int(200 * scale), int(150 * scale), int(100 * scale)]
+        self.raquette_largeurs = [int(160 * scale), int(120 * scale), int(80 * scale)]
         self.raquette_etape = 0
         self.vitesse_x = int(8 * scale)
         self.vitesse_y = -int(8 * scale)
         self.vitesse_max = int(16 * scale)
         self.vitesse_increment = 0.3 * scale
-        self.raquette_pas = int(60 * scale)
+        self.raquette_pas = int(80 * scale)
 
-        # États
         self.score = 0
         self.partie_terminee = False
         self.en_cours = False
@@ -89,14 +82,17 @@ class InterfaceJeu:
         self.boost_timer_id = None
         self.malus_vert_timer_id = None
 
-        # --- Interface ---
+        self.pile_vitesses = []
+        self.file_messages = []
+        self.message_timer_id = None
+
         top_frame = tk.Frame(root, bg="#001a33")
         top_frame.pack(fill=tk.X, pady=int(10 * scale))
 
         self.label_score = tk.Label(
             top_frame,
             text=f"Score : {self.score}",
-            font=("Arial", int(20 * scale), "bold"),
+            font=("Arial", int(20 * self.scale), "bold"),
             fg="yellow",
             bg="#001a33",
         )
@@ -119,7 +115,7 @@ class InterfaceJeu:
             command=self.jouer,
             bg="#003366",
             fg="white",
-            width=int(12 * scale),
+            width=int(12 * self.scale),
         )
         self.bouton_action.pack(padx=int(10 * scale), pady=int(5 * scale))
 
@@ -132,20 +128,16 @@ class InterfaceJeu:
 
         self.afficher_bouton_action("Jouer", self.jouer)
 
-    # ======================
-    # === MÉCANIQUES DU JEU ===
-    # ======================
-
     def creer_briques(self):
         self.canvas.delete("brique")
         self.briques = []
         brique_largeur = int(150 * self.scale)
         brique_hauteur = int(30 * self.scale)
         espacement_x = int(15 * self.scale)
-        espacement_y = int(15 * self.scale)
+        espacement_y = int(10 * self.scale)
         colonnes = 9
         lignes = 5
-        marge_haute = int(40 * self.scale)
+        marge_haute = int(20 * self.scale)
         largeur_total = colonnes * brique_largeur + (colonnes - 1) * espacement_x
         marge_gauche = (self.canvas_width - largeur_total) // 2
         for ligne in range(lignes):
@@ -196,14 +188,24 @@ class InterfaceJeu:
         if self.malus_vert_timer_id is not None:
             self.root.after_cancel(self.malus_vert_timer_id)
             self.malus_vert_timer_id = None
+        if self.message_timer_id is not None:
+            self.root.after_cancel(self.message_timer_id)
+            self.message_timer_id = None
+        self.canvas.delete("popup")
+        self.file_messages = []
+        self.pile_vitesses = []
         self.boost_actif = False
-        self.raquette_pas = int(60 * self.scale)
+        self.raquette_pas = int(80 * self.scale)
         self.score = 0
         self.partie_terminee = False
         self.en_cours = False
         self.raquette_etape = 0
         self.label_score.config(text=f"Score : {self.score}")
         self.canvas.delete("message")
+
+        if self.raquette is None:
+            self.raquette = self.canvas.create_rectangle(0, 0, 0, 0, fill="white", tags=("scene",))
+
         self.mettre_a_jour_raquette(recentrer=True)
         self.positionner_balle_centre()
         self.vitesse_x = int(8 * self.scale)
@@ -222,7 +224,11 @@ class InterfaceJeu:
         if self.malus_vert_timer_id is not None:
             self.root.after_cancel(self.malus_vert_timer_id)
             self.malus_vert_timer_id = None
-        self.raquette_pas = int(60 * self.scale)
+        if self.message_timer_id is not None:
+            self.root.after_cancel(self.message_timer_id)
+            self.message_timer_id = None
+        self.canvas.delete("popup")
+        self.raquette_pas = int(80 * self.scale)
         self.canvas.delete("message")
         self.canvas.create_text(
             self.canvas_width // 2,
@@ -241,8 +247,6 @@ class InterfaceJeu:
 
     def masquer_bouton_action(self):
         self.button_frame.pack_forget()
-
-    # === Mouvements et collisions ===
 
     def deplacer_balle(self):
         if self.partie_terminee or not self.en_cours:
@@ -305,7 +309,6 @@ class InterfaceJeu:
                         return
                     break
 
-        # Conditions de défaite
         if not self.rotation_active:
             if pos[3] >= self.canvas_height:
                 self.positionner_balle_centre()
@@ -317,14 +320,15 @@ class InterfaceJeu:
                 self.vitesse_y = abs(self.vitesse_y)
                 self.reduire_raquette()
 
-        self.animation_id = self.root.after(20, self.deplacer_balle)
+        
 
-    # === Effets spéciaux ===
+        self.animation_id = self.root.after(20, self.deplacer_balle)
 
     def activer_boost_rouge(self):
         if self.boost_actif:
             return
         self.boost_actif = True
+        self.pile_vitesses.append((abs(self.vitesse_x), abs(self.vitesse_y)))
         self.vitesse_x = self.vitesse_max if self.vitesse_x > 0 else -self.vitesse_max
         self.vitesse_y = self.vitesse_max if self.vitesse_y > 0 else -self.vitesse_max
         self.boost_timer_id = self.root.after(2000, self.fin_boost_rouge)
@@ -332,10 +336,12 @@ class InterfaceJeu:
     def fin_boost_rouge(self):
         self.boost_actif = False
         self.boost_timer_id = None
+        if self.pile_vitesses:
+            self.pile_vitesses.pop()
         self.ajuster_vitesse()
 
     def activer_malus_vert(self):
-        self.raquette_pas = int(20 * self.scale)
+        self.raquette_pas = int(40 * self.scale)
         if self.malus_vert_timer_id is not None:
             self.root.after_cancel(self.malus_vert_timer_id)
         self.malus_vert_timer_id = self.root.after(3000, self.fin_malus_vert)
@@ -344,7 +350,7 @@ class InterfaceJeu:
         if self.malus_vert_timer_id is not None:
             self.root.after_cancel(self.malus_vert_timer_id)
             self.malus_vert_timer_id = None
-        self.raquette_pas = int(60 * self.scale)
+        self.raquette_pas = int(80 * self.scale)
 
     def activer_rotation(self):
         if self.rotation_active:
@@ -373,8 +379,6 @@ class InterfaceJeu:
         self.controles_inverses = False
         self.mettre_a_jour_raquette(recentrer=True)
 
-    # === Autres ===
-
     def ajuster_vitesse(self):
         nb_briques_restantes = len(self.briques)
         if nb_briques_restantes <= 15:
@@ -388,27 +392,36 @@ class InterfaceJeu:
     def deplacer_gauche(self, event):
         if self.raquette is None:
             return
-        pos = self.canvas.coords(self.raquette)
-        pas = self.raquette_pas
-        deplacement = -pas if not self.controles_inverses else pas
-        if pos[0] + deplacement < 0:
-            deplacement = -pos[0]
-        self.canvas.move(self.raquette, deplacement, 0)
+        x1, y1, x2, y2 = self.canvas.coords(self.raquette)
+        d = -self.raquette_pas if not self.controles_inverses else self.raquette_pas
+        if x1 + d < 0:
+            d = -x1
+        if x2 + d > self.canvas_width:
+            d = self.canvas_width - x2
+        self.canvas.move(self.raquette, d, 0)
 
     def deplacer_droite(self, event):
         if self.raquette is None:
             return
-        pos = self.canvas.coords(self.raquette)
-        pas = self.raquette_pas
-        deplacement = pas if not self.controles_inverses else -pas
-        if pos[2] + deplacement > self.canvas_width:
-            deplacement = self.canvas_width - pos[2]
-        self.canvas.move(self.raquette, deplacement, 0)
+        x1, y1, x2, y2 = self.canvas.coords(self.raquette)
+        d = self.raquette_pas if not self.controles_inverses else -self.raquette_pas
+        if x1 + d < 0:
+            d = -x1
+        if x2 + d > self.canvas_width:
+            d = self.canvas_width - x2
+        self.canvas.move(self.raquette, d, 0)
 
     def positionner_balle_centre(self):
         rayon = self.balle_diametre / 2
         centre_x = self.canvas_width / 2
-        centre_y = self.raquette_y - 60
+        if self.rotation_active and self.raquette is not None:
+            rp = self.canvas.coords(self.raquette)
+            if rp:
+                centre_y = min(self.canvas_height - rayon, rp[3] + int(60 * self.scale))
+            else:
+                centre_y = rayon + int(60 * self.scale)
+        else:
+            centre_y = max(rayon, self.raquette_y - int(60 * self.scale))
         self.canvas.coords(self.balle, centre_x - rayon, centre_y - rayon, centre_x + rayon, centre_y + rayon)
 
     def mettre_a_jour_raquette(self, recentrer=False):
@@ -427,15 +440,35 @@ class InterfaceJeu:
         x1 = x_centre - demi_largeur
         x2 = x_centre + demi_largeur
 
-        self.canvas.coords(self.raquette, x1, y1, x2, y2)
+        if self.rotation_active and self.raquette is not None and not recentrer:
+            coords = self.canvas.coords(self.raquette)
+            if coords:
+                y1, y2 = coords[1], coords[3]
+
+        if self.raquette is None:
+            self.raquette = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", tags=("scene",))
+        else:
+            try:
+                self.canvas.coords(self.raquette, x1, y1, x2, y2)
+            except tk.TclError:
+                self.raquette = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", tags=("scene",))
 
     def reduire_raquette(self):
         self.raquette_etape += 1
         if self.raquette_etape >= len(self.raquette_largeurs):
-            self.canvas.delete(self.raquette)
-            self.terminer_partie("Perdu 😢")
+            if self.raquette is not None:
+                self.canvas.delete(self.raquette)
+                self.raquette = None
+            self.terminer_partie("Perdu ")
         else:
             self.mettre_a_jour_raquette()
+
+    
+    def traiter_file_messages(self):
+        return
+
+    def fin_affichage_message(self):
+        return
 
 
 if __name__ == "__main__":
