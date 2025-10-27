@@ -250,7 +250,7 @@ class InterfaceJeu:
         self.mettre_a_jour_raquette(recentrer=True)
         self.positionner_balle_centre()
 
-        # Vitesse de départ (douce)
+        # Vitesse de départ 
         self.vitesse_x = int(6 * self.scale)
         self.vitesse_y = -int(6 * self.scale)
 
@@ -330,7 +330,7 @@ class InterfaceJeu:
             if by2 >= self.canvas_height:
                 self.vitesse_y = -self.vitesse_y
 
-        # Collision raquette : hitbox élargie + repositionnement
+        # Collision raquette : hitbox élargie pour eviter le probleme de collision interne expliqué dans le readme 
         if self.raquette is not None:
             rx1, ry1, rx2, ry2 = self.canvas.coords(self.raquette)
             hx1 = rx1 - self.hitbox_pad_x
@@ -621,3 +621,4 @@ class InterfaceJeu:
             self.file_messages.pop(0)
         if self.file_messages:
             self.afficher_message()
+
