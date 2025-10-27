@@ -1,6 +1,5 @@
 """
 Auteur : Stéphane Urbon et Rayane Zidane
-Date : 06/10/2025
 Objectif : Jeu Casse-Brique (version responsive, contrôle arcade).
 Ce module gère la partie principale du jeu :
 - affichage des briques, raquette, balle
@@ -621,5 +620,6 @@ class InterfaceJeu:
             self.file_messages.pop(0)
         if self.file_messages:
             self.afficher_message()
+
 
 
