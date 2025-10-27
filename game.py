@@ -565,3 +565,4 @@ class InterfaceJeu:
             self.file_messages.pop(0)
         if self.file_messages:
             self.afficher_message()
+

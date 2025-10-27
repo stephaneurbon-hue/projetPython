@@ -11,7 +11,11 @@ from game import InterfaceJeu
 __all__ = ["InterfaceAccueil"]  # pour s'assurer que l'import trouve bien la classe
 
 
+<<<<<<< HEAD
 class MenuApp:
+=======
+class InterfaceAccueil:
+>>>>>>> 0fdea16993a05f652364f8ae2766c7b119395c9f
     def __init__(self, root):
         self.root = root
         self.root.title("Casse-Brique")
