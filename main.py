@@ -1,17 +1,15 @@
+"""
+Fichier principal du jeu Casse-Brique
+-------------------------------------
+Auteur : Stéphane Urbon & Rayane Zidane
+Date   : 27/10/2025
+Rôle   : Lance le menu principal.
+"""
+
 import tkinter as tk
-from Accueil import Accueil
-
-
-
-def main():
-    root = tk.Tk()
-    root.title("Casse-Brique")
-    root.state("zoomed")
-    root.configure(bg="#001a33")
-
-    Accueil(root)
-    root.mainloop()
-
+from menu import MenuApp  # nom du module en minuscules
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = MenuApp(root)
+    root.mainloop()
