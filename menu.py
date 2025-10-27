@@ -1,6 +1,5 @@
 """
 Auteur : Stéphane Urbon et Rayane Zidane
-Date : 06/10/2025
 Objectif : Menu d’accueil du jeu Casse-Brique (version séparée du jeu principal).
 Ce module gère l’interface d’accueil avec les boutons Jouer et Quitter.
 """
@@ -96,4 +95,5 @@ class InterfaceAccueil:
 
         # Lancer le jeu (InterfaceJeu)
         InterfaceJeu(self.root, self.scale)
+
 
