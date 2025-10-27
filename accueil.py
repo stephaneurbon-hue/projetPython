@@ -1,62 +1,46 @@
-"""
-accueil.py
------------
-Interface d'accueil du jeu Casse-Brique.
-Affiche le titre et le bouton "Jouer".
-"""
-
 import tkinter as tk
 from jeu import InterfaceJeu
 
 
-class InterfaceAccueil:
-    """Classe représentant l'écran d'accueil du jeu Casse-Brique."""
+class Accueil:
+    """Écran d'accueil du jeu avec menu Jouer / Quitter."""
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Casse-Brique")
+        self.frame = tk.Frame(root, bg="#001a33")
+        self.frame.pack(fill="both", expand=True)
 
-        # Récupération des dimensions d'écran
-        self.screen_width = root.winfo_screenwidth()
-        self.screen_height = root.winfo_screenheight()
-
-        # Taille de référence pour le calcul du facteur d'échelle
-        self.ref_width = 1600
-        self.ref_height = 900
-
-        # Calcul du facteur d'adaptation selon la résolution
-        self.scale_x = self.screen_width / self.ref_width
-        self.scale_y = self.screen_height / self.ref_height
-        self.scale = min(self.scale_x, self.scale_y)
-
-        # Configuration générale de la fenêtre
-        self.root.geometry(f"{self.screen_width}x{self.screen_height}")
-        self.root.configure(bg="#001a33")
-
-        # Titre principal
-        self.label_titre = tk.Label(
-            root,
-            text="Bienvenue dans le Casse-Brique",
-            font=("Arial", int(28 * self.scale), "bold"),
+        self.titre = tk.Label(
+            self.frame,
+            text="🎮 Casse-Brique 🎮",
+            font=("Arial", 40, "bold"),
             fg="white",
             bg="#001a33",
         )
-        self.label_titre.pack(pady=int(100 * self.scale))
+        self.titre.pack(pady=100)
 
-        # Bouton pour démarrer le jeu
-        self.bouton_jouer = tk.Button(
-            root,
+        bouton_jouer = tk.Button(
+            self.frame,
             text="Jouer",
-            font=("Arial", int(20 * self.scale)),
-            command=self.lancer_jeu,
-            bg="#003366",
+            font=("Arial", 24),
+            bg="#004080",
             fg="white",
-            width=int(12 * self.scale),
+            width=12,
+            command=self.lancer_jeu,
         )
-        self.bouton_jouer.pack(pady=int(20 * self.scale))
+        bouton_jouer.pack(pady=20)
+
+        bouton_quitter = tk.Button(
+            self.frame,
+            text="Quitter",
+            font=("Arial", 24),
+            bg="#660000",
+            fg="white",
+            width=12,
+            command=root.destroy,
+        )
+        bouton_quitter.pack(pady=10)
 
     def lancer_jeu(self):
-        """Lance l'interface du jeu et détruit l'écran d'accueil."""
-        self.label_titre.destroy()
-        self.bouton_jouer.destroy()
-        self.interface_jeu = InterfaceJeu(self.root, self.scale)
+        self.frame.destroy()
+        InterfaceJeu(self.root)
