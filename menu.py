@@ -51,7 +51,7 @@ class InterfaceAccueil:
         # Titre principal
         self.label_titre = tk.Label(
             root,
-            text="Bienvenue dans le Casse-Brique",
+            text="Le Casse-Brique Ultime",
             font=("Arial", int(28 * self.scale), "bold"),
             fg="white",
             bg="#001a33",
@@ -96,3 +96,4 @@ class InterfaceAccueil:
 
         # Lancer le jeu (InterfaceJeu)
         InterfaceJeu(self.root, self.scale)
+
