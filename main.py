@@ -1,6 +1,5 @@
 """
 Auteur : Stéphane Urbon et Rayane Zidane
-Date : 06/10/2025
 Objectif : Point d’entrée du jeu Casse-Brique.
 
 Ce script lance la fenêtre principale Tkinter et affiche le menu d’accueil
@@ -35,5 +34,6 @@ def main():
 # Si le script est exécuté directement 
 if __name__ == "__main__":
     main()
+
 
 
