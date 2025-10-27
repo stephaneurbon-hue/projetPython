@@ -30,7 +30,7 @@ class InterfaceJeu:
         # Vitesse balle
         self.vitesse_x = int(6 * scale)
         self.vitesse_y = -int(6 * scale)
-        self.vitesse_max = int(10.5 * scale)
+        self.vitesse_max = int(9 * scale)
         self.vitesse_increment = 0.15 * scale
 
         # Vitesse raquette (déplacement continu)
