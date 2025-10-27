@@ -386,7 +386,7 @@ class InterfaceJeu:
                     self.activer_malus_vert()
 
                 if not self.briques:
-                    self.terminer_partie("Bravo ! Vous avez gagné !")
+                    self.terminer_partie("Gagné GG!")
                     return
                 break
 
@@ -582,7 +582,7 @@ class InterfaceJeu:
             if self.raquette is not None:
                 self.canvas.delete(self.raquette)
                 self.raquette = None
-            self.terminer_partie("Perdu 😢")
+            self.terminer_partie("Game Over")
         else:
             self.mettre_a_jour_raquette()
 
@@ -621,4 +621,5 @@ class InterfaceJeu:
             self.file_messages.pop(0)
         if self.file_messages:
             self.afficher_message()
+
 
