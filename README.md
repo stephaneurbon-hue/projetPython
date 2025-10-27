@@ -8,7 +8,7 @@ Auteurs : Stéphane Urbon, Rayane Zidane 3ETI
 – Briques spéciales malus (délai temporaire) :
 Rouge = accélère fortement la balle 
 Violette = plateau et contrôles inversés  
-Verte = raquette qui est ralentit.  
+Verte = raquette qui est ralentit. l'effet s'annule a la fin du délai ou si y'a la balle touche une autre brique violette.
 – Chaque brique vaut 10 points.
 
 2. Lancement
