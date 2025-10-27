@@ -1,276 +1,567 @@
 """
-Casse-Brique – Logique principale du jeu
-Auteur : Stéphane Urbon & Rayane Zidane
+Auteur : Stéphane Urbon et Rayane Zidane
+Date : 06/10/2025
+Objectif : Jeu Casse-Brique (version responsive, contrôle arcade) - séparé
 """
 
 import tkinter as tk
 import random
-from utils import set_timer, cancel_timer
 
 
-class GameApp:
-    def __init__(self, root, scale=1.0):
+class InterfaceJeu:
+    def __init__(self, root, scale):
         self.root = root
         self.scale = scale
         self.root.configure(bg="#001a33")
 
-        # Canvas principal
-        self.canvas = tk.Canvas(
-            root, bg="#001a33", highlightthickness=0
-        )
-        self.canvas.pack(fill="both", expand=True)
+        # Canvas & éléments
+        self.canvas_width = int(1600 * scale)
+        self.canvas_height = int(900 * scale)
+        self.raquette_hauteur = int(25 * scale)
+        self.balle_diametre = int(25 * scale)
+        self.raquette_y = self.canvas_height - int(15 * scale)
 
-        # Score
+        # Raquette + hitbox
+        self.raquette_largeurs = [int(260 * scale), int(200 * scale), int(140 * scale)]
+        self.raquette_etape = 0
+        self.hitbox_pad_x = int(10 * self.scale)
+        self.hitbox_pad_y = int(6 * self.scale)
+
+        # Vitesse balle
+        self.vitesse_x = int(6 * scale)
+        self.vitesse_y = -int(6 * scale)
+        self.vitesse_max = int(10.5 * scale)
+        self.vitesse_increment = 0.15 * scale
+
+        # Vitesse raquette (déplacement continu)
+        self.raquette_pas = int(80 * scale)
+        self.vitesse_raquette_coef = 0.15
+
+        # États
         self.score = 0
+        self.partie_terminee = False
+        self.en_cours = False
+
+        # Timers
+        self.animation_id = None
+        self.raquette_move_id = None
+        self.rotation_active = False
+        self.rotation_timer_id = None
+        self.boost_actif = False
+        self.boost_timer_id = None
+        self.malus_vert_timer_id = None
+        self.message_timer_id = None
+
+        # Contrôles
+        self.controles_inverses = False
+        self.direction_raquette = 0  # -1 gauche, 1 droite
+
+        # Piles / files
+        self.pile_vitesses = []   # LIFO (pour le boost rouge)
+        self.file_messages = []   # FIFO (messages au centre)
+
+        # UI haut
+        top_frame = tk.Frame(self.root, bg="#001a33")
+        top_frame.pack(fill=tk.X, pady=int(10 * scale))
+
         self.label_score = tk.Label(
-            root,
-            text="Score : 0",
+            top_frame,
+            text=f"Score : {self.score}",
             font=("Arial", int(20 * self.scale), "bold"),
             fg="yellow",
             bg="#001a33",
         )
-        self.label_score.pack(anchor="ne", padx=20, pady=10)
+        self.label_score.pack(side=tk.RIGHT, padx=int(30 * self.scale))
 
-        # Objets du jeu
-        self.balle = None
-        self.raquette = None
+        # Canvas
+        self.canvas = tk.Canvas(
+            self.root,
+            width=self.canvas_width,
+            height=self.canvas_height,
+            bg="#001a33",
+            highlightthickness=0,
+        )
+        self.canvas.pack(pady=int(10 * scale))
+
+        # Boutons fin de partie (dans le canvas)
+        self.button_frame = tk.Frame(self.canvas, bg="#001a33")
+
+        self.bouton_action = tk.Button(
+            self.button_frame,
+            text="Rejouer",
+            font=("Arial", int(18 * scale)),
+            command=self.jouer,
+            bg="#003366",
+            fg="white",
+            width=int(12 * self.scale),
+        )
+        self.bouton_action.pack(side=tk.LEFT, padx=int(10 * self.scale), pady=int(5 * self.scale))
+
+        self.bouton_quitter_ingame = tk.Button(
+            self.button_frame,
+            text="Quitter",
+            font=("Arial", int(18 * self.scale)),
+            command=self.root.destroy,
+            bg="#003366",
+            fg="white",
+            width=int(12 * self.scale),
+        )
+        self.bouton_quitter_ingame.pack(side=tk.LEFT, padx=int(10 * self.scale), pady=int(5 * self.scale))
+
+        self.button_window = self.canvas.create_window(
+            self.canvas_width // 2,
+            self.canvas_height - int(35 * self.scale),
+            window=self.button_frame,
+            anchor="s"
+        )
+        self.canvas.itemconfigure(self.button_window, state="hidden")
+
+        # Objets de jeu
         self.briques = []
+        self.raquette = self.canvas.create_rectangle(0, 0, 0, 0, fill="white", tags=("scene",))
+        self.balle = self.canvas.create_oval(0, 0, 0, 0, fill="white", tags=("scene",))
 
-        # Paramètres du jeu
-        self.start_speed = 2.5 * self.scale
-        self.max_speed = 6.0 * self.scale
-        self.vx = self.start_speed
-        self.vy = -self.start_speed
-
-        self.raquette_speed = 25 * self.scale
-        self.en_cours = True
-        self.rotation_active = False
-        self.controles_inverses = False
-
-        # Timers
-        self.rotation_timer_id = None
-        self.boost_timer_id = None
-        self.malus_timer_id = None
-
-        # Bind des touches
+        # Bind direction (contrôle arcade)
         self.root.bind("<Left>", self.deplacer_gauche)
         self.root.bind("<Right>", self.deplacer_droite)
-        self.root.bind("<Configure>", self.redimensionner)
 
-        # Démarre la partie
-        self.root.after(200, self.start)
+        # Démarrage immédiat
+        self.jouer()
 
-    # --- Initialisation ---
-    def start(self):
-        self.canvas.delete("all")
-        self.score = 0
-        self.label_score.config(text="Score : 0")
-        self.creer_briques()
-        self.creer_raquette()
-        self.creer_balle()
-        self.deplacer_balle()
-
-    # --- Responsive ---
-    def redimensionner(self, event):
-        if event.width < 200 or event.height < 200:
-            return
-        self.canvas.config(width=event.width, height=event.height)
-        self.scale = min(event.width / 1600, event.height / 900)
-
-    # --- Création des objets ---
+    # ---------- Création briques ----------
     def creer_briques(self):
-        self.briques.clear()
-        cols, rows = 9, 3
-        bw, bh = int(150 * self.scale), int(30 * self.scale)
-        esp_x, esp_y = int(15 * self.scale), int(12 * self.scale)
-        marge_haute = int(60 * self.scale)
-        cw = max(1, self.canvas.winfo_width())
-        total_w = cols * bw + (cols - 1) * esp_x
-        marge_gauche = (cw - total_w) // 2
+        self.canvas.delete("brique")
+        self.briques = []
 
-        for r in range(rows):
-            for c in range(cols):
-                x1 = marge_gauche + c * (bw + esp_x)
-                y1 = marge_haute + r * (bh + esp_y)
-                x2, y2 = x1 + bw, y1 + bh
-                rect = self.canvas.create_rectangle(
-                    x1, y1, x2, y2, fill="#a3d5ff", outline="black", tags="brique"
+        brique_largeur = int(150 * self.scale)
+        brique_hauteur = int(30 * self.scale)
+        espacement_x = int(15 * self.scale)
+        espacement_y = int(12 * self.scale)
+        colonnes = 9
+        lignes = 4
+        marge_haute = 0
+
+        largeur_total = colonnes * brique_largeur + (colonnes - 1) * espacement_x
+        marge_gauche = (self.canvas_width - largeur_total) // 2
+
+        for ligne in range(lignes):
+            for col in range(colonnes):
+                x1 = marge_gauche + col * (brique_largeur + espacement_x)
+                y1 = marge_haute + ligne * (brique_hauteur + espacement_y)
+                x2 = x1 + brique_largeur
+                y2 = y1 + brique_hauteur
+                brique = self.canvas.create_rectangle(
+                    x1, y1, x2, y2, fill="#a3d5ff", outline="black", tags=("brique", "scene")
                 )
-                self.briques.append(rect)
+                self.briques.append(brique)
 
-        # Briques spéciales
+        self.briques_totales = len(self.briques)
+
+        # Briques spéciales (3 rouges, 2 violettes, 3 vertes)
         if len(self.briques) >= 8:
             choix = random.sample(self.briques, 8)
             rouges, violettes, vertes = choix[:3], choix[3:5], choix[5:8]
-            for r in rouges:
-                self.canvas.itemconfig(r, fill="#ff8c8c", tags=("brique", "rouge"))
-            for v in violettes:
-                self.canvas.itemconfig(v, fill="#d5a6ff", tags=("brique", "violette"))
-            for g in vertes:
-                self.canvas.itemconfig(g, fill="#b3ffcc", tags=("brique", "verte"))
+            for b in rouges:
+                self.canvas.itemconfig(b, fill="#ff8c8c", tags=("brique", "brique_rouge", "scene"))
+            for b in violettes:
+                self.canvas.itemconfig(b, fill="#d5a6ff", tags=("brique", "brique_violette", "scene"))
+            for b in vertes:
+                self.canvas.itemconfig(b, fill="#b3ffcc", tags=("brique", "brique_verte", "scene"))
 
-    def creer_raquette(self):
-        largeur = int(200 * self.scale)
-        hauteur = int(25 * self.scale)
-        y = self.canvas.winfo_height() - int(80 * self.scale)
-        self.raquette = self.canvas.create_rectangle(
-            (self.canvas.winfo_width() - largeur) // 2,
-            y,
-            (self.canvas.winfo_width() + largeur) // 2,
-            y + hauteur,
-            fill="white",
-        )
+        # Bornes de la zone briques (pour bloquer le "couloir" latéral)
+        self.zone_brique_x1 = marge_gauche
+        self.zone_brique_x2 = marge_gauche + largeur_total
+        self.zone_brique_y2 = marge_haute + lignes * brique_hauteur + (lignes - 1) * espacement_y
 
-    def creer_balle(self):
-        d = int(25 * self.scale)
-        x = self.canvas.winfo_width() // 2 - d // 2
-        y = self.canvas.winfo_height() // 2
-        self.balle = self.canvas.create_oval(x, y, x + d, y + d, fill="white")
+    # ---------- Cycle ----------
+    def jouer(self):
+        self.desactiver_rotation(force=True)
+        self.reset_partie()
+        self.creer_briques()
+        self.masquer_bouton_action()
+        self.partie_terminee = False
+        self.en_cours = True
+        self.canvas.focus_set()
 
-    # --- Déplacements ---
-    def deplacer_balle(self):
-        if not self.en_cours:
-            return
+        # Raquette bouge en continu (droite par défaut)
+        self.direction_raquette = 1
+        self.mouvement_raquette()
 
-        self.canvas.move(self.balle, self.vx, self.vy)
-        bx1, by1, bx2, by2 = self.canvas.coords(self.balle)
-        cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
+        self.deplacer_balle()
 
-        # rebonds
-        if bx1 <= 0:
-            self.vx = abs(self.vx)
-        if bx2 >= cw:
-            self.vx = -abs(self.vx)
-        if by1 <= 0:
-            self.vy = abs(self.vy)
-        if by2 >= ch:
-            self.fin_partie("Perdu !")
-            return
+    def reset_partie(self):
+        # Annule timers
+        if self.animation_id is not None:
+            self.root.after_cancel(self.animation_id)
+            self.animation_id = None
+        if self.raquette_move_id is not None:
+            self.root.after_cancel(self.raquette_move_id)
+            self.raquette_move_id = None
+        if self.boost_timer_id is not None:
+            self.root.after_cancel(self.boost_timer_id)
+            self.boost_timer_id = None
+        if self.malus_vert_timer_id is not None:
+            self.root.after_cancel(self.malus_vert_timer_id)
+            self.malus_vert_timer_id = None
+        if self.rotation_timer_id is not None:
+            self.root.after_cancel(self.rotation_timer_id)
+            self.rotation_timer_id = None
+        if self.message_timer_id is not None:
+            self.root.after_cancel(self.message_timer_id)
+            self.message_timer_id = None
 
-        # raquette
-        rx1, ry1, rx2, ry2 = self.canvas.coords(self.raquette)
-        if bx2 >= rx1 and bx1 <= rx2 and by2 >= ry1 and by1 <= ry2:
-            self.vy = -abs(self.vy)
-            delta = ((bx1 + bx2) / 2 - (rx1 + rx2) / 2) / (rx2 - rx1)
-            self.vx += 0.6 * delta
+        # Nettoyage messages
+        self.canvas.delete("popup")
+        self.canvas.delete("message")
+        self.file_messages = []
 
-        # collisions briques
-        for b in self.briques[:]:
-            if not self.canvas.type(b):
-                continue
-            x1, y1, x2, y2 = self.canvas.coords(b)
-            if bx2 >= x1 and bx1 <= x2 and by2 >= y1 and by1 <= y2:
-                tags = self.canvas.gettags(b)
-                self.canvas.delete(b)
-                self.briques.remove(b)
-                self.vy = -self.vy
-                self.score += 10
-                self.label_score.config(text=f"Score : {self.score}")
-                if "rouge" in tags:
-                    self.boost_rouge()
-                elif "violette" in tags:
-                    self.rotation()
-                elif "verte" in tags:
-                    self.malus_vert()
-                break
-
-        if not self.briques:
-            self.fin_partie("Bravo ! Vous avez gagné !")
-            return
-
-        self.root.after(15, self.deplacer_balle)
-
-    # --- Déplacement raquette ---
-    def deplacer_gauche(self, _):
-        sens = -1 if not self.controles_inverses else 1
-        self.move_pad(sens)
-
-    def deplacer_droite(self, _):
-        sens = 1 if not self.controles_inverses else -1
-        self.move_pad(sens)
-
-    def move_pad(self, direction):
-        dx = direction * self.raquette_speed
-        rx1, ry1, rx2, ry2 = self.canvas.coords(self.raquette)
-        cw = self.canvas.winfo_width()
-        if rx1 + dx < 0:
-            dx = -rx1
-        if rx2 + dx > cw:
-            dx = cw - rx2
-        self.canvas.move(self.raquette, dx, 0)
-
-    # --- Effets spéciaux ---
-    def boost_rouge(self):
-        self.vx *= 1.8
-        self.vy *= 1.8
-        cancel_timer(self.root, "boost_timer_id", self)
-        set_timer(self.root, "boost_timer_id", 2000, self.fin_boost, self)
-
-    def fin_boost(self):
-        self.vx = max(min(self.vx, self.max_speed), -self.max_speed)
-        self.vy = max(min(self.vy, self.max_speed), -self.max_speed)
-
-    def malus_vert(self):
-        self.raquette_speed = max(10 * self.scale, self.raquette_speed / 2)
-        cancel_timer(self.root, "malus_timer_id", self)
-        set_timer(self.root, "malus_timer_id", 1500, self.fin_malus, self)
-
-    def fin_malus(self):
-        self.raquette_speed = 25 * self.scale
-
-    def rotation(self):
-        if self.rotation_active:
-            cancel_timer(self.root, "rotation_timer_id", self)
-            set_timer(self.root, "rotation_timer_id", 10000, self.fin_rotation, self)
-            return
-        self.rotation_active = True
-        self.controles_inverses = True
-        cx, cy = self.canvas.winfo_width() / 2, self.canvas.winfo_height() / 2
-        self.canvas.scale("all", cx, cy, -1, -1)
-        set_timer(self.root, "rotation_timer_id", 10000, self.fin_rotation, self)
-
-    def fin_rotation(self):
-        self.rotation_active = False
-        self.controles_inverses = False
-        cx, cy = self.canvas.winfo_width() / 2, self.canvas.winfo_height() / 2
-        self.canvas.scale("all", cx, cy, -1, -1)
-
-    # --- Fin de partie ---
-    def fin_partie(self, message):
+        # États
+        self.pile_vitesses = []
+        self.boost_actif = False
+        self.raquette_pas = int(80 * self.scale)
+        self.score = 0
+        self.partie_terminee = False
         self.en_cours = False
-        cancel_timer(self.root, "boost_timer_id", self)
-        cancel_timer(self.root, "malus_timer_id", self)
-        cancel_timer(self.root, "rotation_timer_id", self)
+        self.raquette_etape = 0
+        self.controles_inverses = False
+        self.direction_raquette = 0
+
+        self.label_score.config(text=f"Score : {self.score}")
+
+        if self.raquette is None:
+            self.raquette = self.canvas.create_rectangle(0, 0, 0, 0, fill="white", tags=("scene",))
+
+        self.mettre_a_jour_raquette(recentrer=True)
+        self.positionner_balle_centre()
+
+        # Démarrage doux
+        self.vitesse_x = int(6 * self.scale)
+        self.vitesse_y = -int(6 * self.scale)
+
+    def terminer_partie(self, message):
+        self.partie_terminee = True
+        self.en_cours = False
+
+        # Annule timers
+        if self.animation_id is not None:
+            self.root.after_cancel(self.animation_id)
+            self.animation_id = None
+        if self.raquette_move_id is not None:
+            self.root.after_cancel(self.raquette_move_id)
+            self.raquette_move_id = None
+        self.desactiver_rotation(force=True)
+        if self.boost_timer_id is not None:
+            self.root.after_cancel(self.boost_timer_id)
+            self.boost_timer_id = None
+        if self.malus_vert_timer_id is not None:
+            self.root.after_cancel(self.malus_vert_timer_id)
+            self.malus_vert_timer_id = None
+        if self.message_timer_id is not None:
+            self.root.after_cancel(self.message_timer_id)
+            self.message_timer_id = None
+
+        self.canvas.delete("popup")
+        self.raquette_pas = int(80 * self.scale)
+        self.canvas.delete("message")
         self.canvas.create_text(
-            self.canvas.winfo_width() // 2,
-            self.canvas.winfo_height() // 2,
+            self.canvas_width // 2,
+            self.canvas_height // 2,
             text=message,
             fill="white",
             font=("Arial", int(36 * self.scale), "bold"),
+            tags="message",
         )
-        bouton = tk.Button(
-            self.canvas,
-            text="Rejouer",
-            font=("Arial", int(20 * self.scale)),
-            bg="#004080",
-            fg="white",
-            command=self.start,
+        self.afficher_bouton_action("Rejouer", self.jouer)
+
+    # ---------- UI ----------
+    def afficher_bouton_action(self, texte, commande):
+        self.bouton_action.config(text=texte, command=commande, state=tk.NORMAL)
+        self.canvas.itemconfigure(self.button_window, state="normal")
+
+    def masquer_bouton_action(self):
+        self.canvas.itemconfigure(self.button_window, state="hidden")
+
+    # ---------- Déplacements ----------
+    def deplacer_balle(self):
+        if self.partie_terminee or not self.en_cours:
+            return
+
+        # Déplacement
+        self.canvas.move(self.balle, self.vitesse_x, self.vitesse_y)
+        bx1, by1, bx2, by2 = self.canvas.coords(self.balle)
+
+        # Rebonds horizontaux avec "murs" alignés sur la zone briques
+        pad = self.balle_diametre // 3
+        if by1 <= getattr(self, "zone_brique_y2", 0) + pad:
+            left_wall = max(0, getattr(self, "zone_brique_x1", 0) - pad)
+            right_wall = min(self.canvas_width, getattr(self, "zone_brique_x2", self.canvas_width) + pad)
+        else:
+            left_wall, right_wall = 0, self.canvas_width
+
+        if bx1 <= left_wall:
+            self.vitesse_x = abs(self.vitesse_x)
+            self.canvas.move(self.balle, left_wall - bx1, 0)
+            bx1, by1, bx2, by2 = self.canvas.coords(self.balle)
+        elif bx2 >= right_wall:
+            self.vitesse_x = -abs(self.vitesse_x)
+            self.canvas.move(self.balle, right_wall - bx2, 0)
+            bx1, by1, bx2, by2 = self.canvas.coords(self.balle)
+
+        # Rebonds haut/bas (selon rotation)
+        if not self.rotation_active:
+            if by1 <= 0:
+                self.vitesse_y = -self.vitesse_y
+        else:
+            if by2 >= self.canvas_height:
+                self.vitesse_y = -self.vitesse_y
+
+        # Raquette : hitbox élargie + repositionnement
+        if self.raquette is not None:
+            rx1, ry1, rx2, ry2 = self.canvas.coords(self.raquette)
+            hx1 = rx1 - self.hitbox_pad_x
+            hy1 = ry1 - self.hitbox_pad_y
+            hx2 = rx2 + self.hitbox_pad_x
+            hy2 = ry2 + self.hitbox_pad_y
+
+            if not self.rotation_active:
+                collision = (
+                    self.vitesse_y > 0 and
+                    bx2 >= hx1 and bx1 <= hx2 and
+                    by2 >= hy1 and by1 <= ry1
+                )
+            else:
+                collision = (
+                    self.vitesse_y < 0 and
+                    bx2 >= hx1 and bx1 <= hx2 and
+                    by1 <= hy2 and by2 >= ry2
+                )
+
+            if collision:
+                self.vitesse_y = -self.vitesse_y
+                # recoller la balle au bord de la raquette visible
+                cx = (bx1 + bx2) / 2
+                r = self.balle_diametre / 2
+                if not self.rotation_active:
+                    y2 = ry1 - 1
+                    y1 = y2 - 2 * r
+                else:
+                    y1 = ry2 + 1
+                    y2 = y1 + 2 * r
+                self.canvas.coords(self.balle, int(cx - r), int(y1), int(cx + r), int(y2))
+                bx1, by1, bx2, by2 = self.canvas.coords(self.balle)
+
+        # Collision briques
+        for brique in self.briques[:]:
+            x1, y1, x2, y2 = self.canvas.coords(brique)
+            if bx2 >= x1 and bx1 <= x2 and by2 >= y1 and by1 <= y2:
+                tags = self.canvas.gettags(brique)
+                self.canvas.delete(brique)
+                self.briques.remove(brique)
+                self.vitesse_y = -self.vitesse_y
+                self.score += 10
+                self.label_score.config(text=f"Score : {self.score}")
+
+                if not self.boost_actif:
+                    self.ajuster_vitesse()
+                if "brique_violette" in tags:
+                    self.activer_rotation()
+                if "brique_rouge" in tags:
+                    self.activer_boost_rouge()
+                if "brique_verte" in tags:
+                    self.activer_malus_vert()
+
+                if not self.briques:
+                    self.terminer_partie("Bravo ! Vous avez gagné !")
+                    return
+                break
+
+        # Perte "vie"
+        if not self.rotation_active:
+            if by2 >= self.canvas_height:
+                self.positionner_balle_centre()
+                self.vitesse_y = -abs(self.vitesse_y)
+                self.reduire_raquette()
+        else:
+            if by1 <= 0:
+                self.positionner_balle_centre()
+                self.vitesse_y = abs(self.vitesse_y)
+                self.reduire_raquette()
+
+        self.animation_id = self.root.after(15, self.deplacer_balle)
+
+    def mouvement_raquette(self):
+        """Déplacement continu façon arcade avec rebond auto aux bords."""
+        if self.partie_terminee or not self.en_cours or self.raquette is None:
+            return
+
+        rx1, ry1, rx2, ry2 = self.canvas.coords(self.raquette)
+        vitesse = max(1, int(self.raquette_pas * self.vitesse_raquette_coef))
+        d = vitesse * (-1 if self.controles_inverses else 1) * self.direction_raquette
+
+        if self.direction_raquette != 0:
+            if rx1 + d < 0:
+                d = -rx1
+                self.direction_raquette = 1 if not self.controles_inverses else -1
+            elif rx2 + d > self.canvas_width:
+                d = self.canvas_width - rx2
+                self.direction_raquette = -1 if not self.controles_inverses else 1
+            self.canvas.move(self.raquette, d, 0)
+
+        self.raquette_move_id = self.root.after(20, self.mouvement_raquette)
+
+    # ---------- Malus/Bonus ----------
+    def activer_boost_rouge(self):
+        if self.boost_actif:
+            return
+        self.boost_actif = True
+        self.push_message("Balle à grande vitesse !")
+        self.pile_vitesses.append((abs(self.vitesse_x), abs(self.vitesse_y)))
+        self.vitesse_x = self.vitesse_max if self.vitesse_x > 0 else -self.vitesse_max
+        self.vitesse_y = self.vitesse_max if self.vitesse_y > 0 else -self.vitesse_max
+        self.boost_timer_id = self.root.after(2000, self.fin_boost_rouge)
+
+    def fin_boost_rouge(self):
+        self.boost_actif = False
+        self.boost_timer_id = None
+        if self.pile_vitesses:
+            self.pile_vitesses.pop()
+        self.ajuster_vitesse()
+
+    def activer_malus_vert(self):
+        self.push_message("Raquette lourde !")
+        self.raquette_pas = int(40 * self.scale)
+        if self.malus_vert_timer_id is not None:
+            self.root.after_cancel(self.malus_vert_timer_id)
+        self.malus_vert_timer_id = self.root.after(1500, self.fin_malus_vert)
+
+    def fin_malus_vert(self):
+        if self.malus_vert_timer_id is not None:
+            self.root.after_cancel(self.malus_vert_timer_id)
+            self.malus_vert_timer_id = None
+        self.raquette_pas = int(80 * self.scale)
+
+    def activer_rotation(self):
+        if self.rotation_active:
+            self.desactiver_rotation()
+            return
+        self.rotation_active = True
+        self.push_message("Plateau inversé !")
+        self.controles_inverses = True
+        cx = self.canvas_width / 2
+        cy = self.canvas_height / 2
+        self.canvas.scale("scene", cx, cy, -1, -1)
+        if self.rotation_timer_id is not None:
+            self.root.after_cancel(self.rotation_timer_id)
+        self.rotation_timer_id = self.root.after(10000, self.desactiver_rotation)
+
+    def desactiver_rotation(self, force=False):
+        if not self.rotation_active and not force:
+            return
+        if self.rotation_timer_id is not None:
+            self.root.after_cancel(self.rotation_timer_id)
+            self.rotation_timer_id = None
+        if self.rotation_active:
+            cx = self.canvas_width / 2
+            cy = self.canvas_height / 2
+            self.canvas.scale("scene", cx, cy, -1, -1)
+        self.rotation_active = False
+        self.controles_inverses = False
+        self.mettre_a_jour_raquette(recentrer=True)
+
+    def ajuster_vitesse(self):
+        nb_briques_restantes = len(self.briques)
+        if nb_briques_restantes <= 15:
+            vitesse_cible = self.vitesse_max
+        else:
+            progression = 1 - (nb_briques_restantes / self.briques_totales)
+            base = int(8 * self.scale)
+            vitesse_cible = int(base + progression * (self.vitesse_max - base))
+        self.vitesse_x = vitesse_cible if self.vitesse_x >= 0 else -vitesse_cible
+        self.vitesse_y = vitesse_cible if self.vitesse_y >= 0 else -vitesse_cible
+
+    # ---------- Entrées ----------
+    def deplacer_gauche(self, _):
+        self.direction_raquette = -1  # direction brute (l'inversion est gérée dans mouvement_raquette)
+
+    def deplacer_droite(self, _):
+        self.direction_raquette = 1
+
+    # ---------- Positionnements ----------
+    def positionner_balle_centre(self):
+        r = self.balle_diametre / 2
+        cx = self.canvas_width / 2
+        if self.rotation_active and self.raquette is not None:
+            rp = self.canvas.coords(self.raquette)
+            if rp:
+                cy = min(self.canvas_height - r, rp[3] + int(60 * self.scale))
+            else:
+                cy = r + int(60 * self.scale)
+        else:
+            cy = max(r, self.raquette_y - int(60 * self.scale))
+        self.canvas.coords(self.balle, cx - r, cy - r, cx + r, cy + r)
+
+    def mettre_a_jour_raquette(self, recentrer=False):
+        etape = max(0, min(self.raquette_etape, len(self.raquette_largeurs) - 1))
+
+        x_centre = self.canvas_width / 2
+        y1 = self.raquette_y
+        y2 = self.raquette_y + self.raquette_hauteur
+
+        largeur = self.raquette_largeurs[etape]
+        demi = largeur / 2
+        x1 = x_centre - demi
+        x2 = x_centre + demi
+
+        if self.rotation_active and self.raquette is not None and not recentrer:
+            coords = self.canvas.coords(self.raquette)
+            if coords:
+                y1, y2 = coords[1], coords[3]
+
+        if self.raquette is None:
+            self.raquette = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", tags=("scene",))
+        else:
+            try:
+                self.canvas.coords(self.raquette, x1, y1, x2, y2)
+            except tk.TclError:
+                self.raquette = self.canvas.create_rectangle(x1, y1, x2, y2, fill="white", tags=("scene",))
+
+    def reduire_raquette(self):
+        self.raquette_etape += 1
+        if self.raquette_etape >= len(self.raquette_largeurs):
+            if self.raquette is not None:
+                self.canvas.delete(self.raquette)
+                self.raquette = None
+            self.terminer_partie("Perdu ")
+        else:
+            self.mettre_a_jour_raquette()
+
+    # ---------- Messages centrés ----------
+    def push_message(self, texte):
+        self.file_messages.append(texte)
+        if len(self.file_messages) == 1:
+            self.afficher_message()
+
+    def afficher_message(self):
+        if not self.file_messages:
+            return
+        texte = self.file_messages[0]
+        self.canvas.delete("message")
+        self.message_id = self.canvas.create_text(
+            self.canvas_width // 2,
+            self.canvas_height // 2,
+            text=texte,
+            fill="white",
+            font=("Arial", int(32 * self.scale), "bold"),
+            tags="message",
         )
-        quitter = tk.Button(
-            self.canvas,
-            text="Quitter",
-            font=("Arial", int(20 * self.scale)),
-            bg="#660000",
-            fg="white",
-            command=self.root.destroy,
-        )
-        self.canvas.create_window(
-            self.canvas.winfo_width() // 2 - 100,
-            self.canvas.winfo_height() // 2 + 60,
-            window=bouton,
-        )
-        self.canvas.create_window(
-            self.canvas.winfo_width() // 2 + 100,
-            self.canvas.winfo_height() // 2 + 60,
-            window=quitter,
-        )
+        self.message_timer_id = self.root.after(1500, self.retirer_message)
+
+    def retirer_message(self):
+        if self.message_timer_id is not None:
+            self.root.after_cancel(self.message_timer_id)
+            self.message_timer_id = None
+        self.canvas.delete("message")
+        if self.file_messages:
+            self.file_messages.pop(0)
+        if self.file_messages:
+            self.afficher_message()

@@ -7,9 +7,13 @@ Rôle   : Lance le menu principal.
 """
 
 import tkinter as tk
-from menu import MenuApp  # nom du module en minuscules
+from menu import MenuApp
+
+def main():
+    root = tk.Tk()
+    MenuApp(root)
+    root.mainloop()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = MenuApp(root)
-    root.mainloop()
+    main()
+
